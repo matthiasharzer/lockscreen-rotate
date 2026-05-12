@@ -4,7 +4,10 @@ go 1.26.3
 
 tool honnef.co/go/tools/cmd/staticcheck
 
-require github.com/spf13/cobra v1.10.2
+require (
+	github.com/godbus/dbus/v5 v5.2.2
+	github.com/spf13/cobra v1.10.2
+)
 
 require (
 	github.com/BurntSushi/toml v1.4.1-0.20240526193622-a339e1f7089c // indirect
@@ -13,6 +16,7 @@ require (
 	golang.org/x/exp/typeparams v0.0.0-20231108232855-2478ac86f678 // indirect
 	golang.org/x/mod v0.23.0 // indirect
 	golang.org/x/sync v0.11.0 // indirect
+	golang.org/x/sys v0.30.0 // indirect
 	golang.org/x/tools v0.30.0 // indirect
 	honnef.co/go/tools v0.6.1 // indirect
 )
