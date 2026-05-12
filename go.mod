@@ -1,6 +1,6 @@
-module template
+module github.com/matthiasharzer/lockscreen-rotate
 
-go 1.26.0
+go 1.26.3
 
 tool honnef.co/go/tools/cmd/staticcheck
 

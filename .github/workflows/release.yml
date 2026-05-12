@@ -9,7 +9,6 @@ permissions:
     contents: write
     packages: write
 
-
 jobs:
   get-next-version:
     name: Get next version
