@@ -5,7 +5,7 @@ import (
 	"os"
 
 	"github.com/matthiasharzer/lockscreen-rotate/cmd/version"
-
+	"github.com/matthiasharzer/lockscreen-rotate/cmd/youtube"
 	"github.com/spf13/cobra"
 )
 
@@ -18,6 +18,7 @@ var rootCommand = &cobra.Command{
 
 func init() {
 	rootCommand.AddCommand(version.Command)
+	rootCommand.AddCommand(youtube.Command)
 }
 
 func main() {
