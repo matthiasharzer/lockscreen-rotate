@@ -60,7 +60,7 @@ func (s *State) listenForLockStateChanges() error {
 
 	// Spawn a background goroutine dedicated strictly to D-Bus events
 	go func() {
-		logging.Info("Listening for D-Bus ScreenSaver unlock events...")
+		logging.Info("listening for D-Bus ScreenSaver unlock events...")
 		for sig := range sigChan {
 			s.onDbusSignal(sig)
 		}
@@ -75,13 +75,13 @@ func (s *State) onDbusSignal(sig *dbus.Signal) {
 	}
 
 	if len(sig.Body) != 1 {
-		logging.Warn("Received unexpected D-Bus signal with wrong number of arguments", "signal", sig)
+		logging.Warn("received unexpected D-Bus signal with wrong number of arguments", "signal", sig)
 		return
 	}
 
 	active, ok := sig.Body[0].(bool)
 	if !ok {
-		logging.Warn("Received unexpected D-Bus signal with wrong argument type", "signal", sig)
+		logging.Warn("received unexpected D-Bus signal with wrong argument type", "signal", sig)
 		return
 	}
 
@@ -93,7 +93,7 @@ func (s *State) onDbusSignal(sig *dbus.Signal) {
 	s.locked = active
 	s.mu.Unlock()
 
-	logging.Info("Screen lock state changed", "locked", active)
+	logging.Info("screen lock state changed", "locked", active)
 
 	s.notifySubscribers(active)
 }
@@ -106,7 +106,7 @@ func (s *State) notifySubscribers(locked bool) {
 		select {
 		case ch <- locked:
 		default:
-			logging.Warn("Subscriber channel is full, skipping notification", "locked", locked)
+			logging.Warn("subscriber channel is full, skipping notification", "locked", locked)
 		}
 	}
 }
@@ -119,6 +119,19 @@ func (s *State) Subscribe() <-chan bool {
 	s.mu.Unlock()
 
 	return ch
+}
+
+func (s *State) Unsubscribe(ch <-chan bool) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	for i, subscriber := range s.subscribers {
+		if subscriber == ch {
+			s.subscribers = append(s.subscribers[:i], s.subscribers[i+1:]...)
+			close(subscriber)
+			return
+		}
+	}
 }
 
 func (s *State) IsLocked() bool {
