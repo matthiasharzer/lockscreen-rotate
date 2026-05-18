@@ -1,4 +1,4 @@
-package mediamanager
+package rotate
 
 import (
 	"context"
@@ -20,7 +20,7 @@ type Schedule struct {
 
 type Updater func(destPath string) error
 
-type VideoManager struct {
+type Manager struct {
 	targetSymlinkPath string
 	cacheDirectory    string
 	isDownloading     atomic.Bool
@@ -31,19 +31,19 @@ type VideoManager struct {
 	pendingVideo string
 }
 
-func NewVideoManager(
+func NewRotateManager(
 	symlinkPath,
 	cacheDirectory string,
 	downloader Updater,
 	lockscreenState *lockscreen.State,
 	trigger trigger.Trigger,
-) (*VideoManager, error) {
+) (*Manager, error) {
 	absSymlinkPath, err := filepath.Abs(symlinkPath)
 	if err != nil {
 		return nil, fmt.Errorf("could not resolve absolute symlink path: %w", err)
 	}
 
-	return &VideoManager{
+	return &Manager{
 		targetSymlinkPath: absSymlinkPath,
 		cacheDirectory:    cacheDirectory,
 		updateFile:        downloader,
@@ -52,26 +52,26 @@ func NewVideoManager(
 	}, nil
 }
 
-func (vm *VideoManager) isScreenLocked() bool {
-	if vm.lockscreenState == nil {
+func (m *Manager) isScreenLocked() bool {
+	if m.lockscreenState == nil {
 		logging.Warn("lockscreen state is nil. Assuming screen is unlocked")
 		return false
 	}
-	return vm.lockscreenState.IsLocked()
+	return m.lockscreenState.IsLocked()
 }
 
-func (vm *VideoManager) update() {
-	if !vm.isDownloading.CompareAndSwap(false, true) {
+func (m *Manager) update() {
+	if !m.isDownloading.CompareAndSwap(false, true) {
 		logging.Info("download already in progress. Skipping")
 		return
 	}
-	defer vm.isDownloading.Store(false)
+	defer m.isDownloading.Store(false)
 
 	timestamp := time.Now().Unix()
-	finalFilename := filepath.Join(vm.cacheDirectory, fmt.Sprintf("file_%d", timestamp))
+	finalFilename := filepath.Join(m.cacheDirectory, fmt.Sprintf("file_%d", timestamp))
 	tempFilename := finalFilename + ".part"
 
-	err := vm.updateFile(tempFilename)
+	err := m.updateFile(tempFilename)
 	if err != nil {
 		logging.Error("failed to download video", "error", err)
 		_ = os.Remove(tempFilename)
@@ -87,23 +87,23 @@ func (vm *VideoManager) update() {
 
 	logging.Info("download successful", "finalFilename", finalFilename)
 
-	if vm.isScreenLocked() {
-		vm.postponeVideo(finalFilename)
+	if m.isScreenLocked() {
+		m.postponeVideo(finalFilename)
 		return
 	}
 
 	// Screen is unlocked, apply immediately
-	vm.applySymlink(finalFilename)
-	vm.cleanupOldVideos(finalFilename)
+	m.applySymlink(finalFilename)
+	m.cleanupOldVideos(finalFilename)
 }
 
-func (vm *VideoManager) postponeVideo(videoPath string) {
+func (m *Manager) postponeVideo(videoPath string) {
 	logging.Info("postponing video application until screen is unlocked", "videoPath", videoPath)
-	vm.pendingVideo = videoPath
+	m.pendingVideo = videoPath
 }
 
-func (vm *VideoManager) applySymlink(videoPath string) {
-	tempSymlink := vm.targetSymlinkPath + ".tmp"
+func (m *Manager) applySymlink(videoPath string) {
+	tempSymlink := m.targetSymlinkPath + ".tmp"
 	_ = os.Remove(tempSymlink) // Ensure no leftover temp symlink exists
 
 	err := os.Symlink(videoPath, tempSymlink)
@@ -112,7 +112,7 @@ func (vm *VideoManager) applySymlink(videoPath string) {
 		return
 	}
 
-	err = os.Rename(tempSymlink, vm.targetSymlinkPath)
+	err = os.Rename(tempSymlink, m.targetSymlinkPath)
 	if err != nil {
 		logging.Error("failed to atomically update symlink", "error", err)
 		return
@@ -123,11 +123,11 @@ func (vm *VideoManager) applySymlink(videoPath string) {
 	if err != nil {
 		logging.Warn("failed to update file timestamps", "error", err)
 	}
-	logging.Info("symlink updated successfully", "symlinkPath", vm.targetSymlinkPath, "videoPath", videoPath)
+	logging.Info("symlink updated successfully", "symlinkPath", m.targetSymlinkPath, "videoPath", videoPath)
 }
 
-func (vm *VideoManager) cleanupOldVideos(keepFile string) {
-	entries, err := os.ReadDir(vm.cacheDirectory)
+func (m *Manager) cleanupOldVideos(keepFile string) {
+	entries, err := os.ReadDir(m.cacheDirectory)
 	if err != nil {
 		logging.Error("failed to read storage directory for cleanup", "error", err)
 		return
@@ -137,8 +137,8 @@ func (vm *VideoManager) cleanupOldVideos(keepFile string) {
 		if entry.IsDir() {
 			continue
 		}
-		filePath := filepath.Join(vm.cacheDirectory, entry.Name())
-		isKnownFile := filePath == keepFile || filePath == vm.pendingVideo
+		filePath := filepath.Join(m.cacheDirectory, entry.Name())
+		isKnownFile := filePath == keepFile || filePath == m.pendingVideo
 		if isKnownFile {
 			continue
 		}
@@ -150,29 +150,29 @@ func (vm *VideoManager) cleanupOldVideos(keepFile string) {
 	}
 }
 
-func (vm *VideoManager) applyPendingVideo() {
-	if vm.pendingVideo == "" {
+func (m *Manager) applyPendingVideo() {
+	if m.pendingVideo == "" {
 		return
 	}
-	logging.Info("applying pending video", "pendingVideo", vm.pendingVideo)
-	vm.applySymlink(vm.pendingVideo)
-	vm.pendingVideo = ""
+	logging.Info("applying pending video", "pendingVideo", m.pendingVideo)
+	m.applySymlink(m.pendingVideo)
+	m.pendingVideo = ""
 }
 
-func (vm *VideoManager) Run(ctx context.Context) error {
-	isScreenLockedSub := vm.lockscreenState.Subscribe()
-	defer vm.lockscreenState.Unsubscribe(isScreenLockedSub)
+func (m *Manager) Run(ctx context.Context) error {
+	isScreenLockedSub := m.lockscreenState.Subscribe()
+	defer m.lockscreenState.Unsubscribe(isScreenLockedSub)
 
 	for {
 		select {
-		case <-vm.trigger:
+		case <-m.trigger:
 			logging.Info("trigger event received. Initiating update.")
-			go vm.update()
+			go m.update()
 		case isLocked := <-isScreenLockedSub:
-			hasPendingVideo := vm.pendingVideo != ""
+			hasPendingVideo := m.pendingVideo != ""
 			if !isLocked && hasPendingVideo {
 				logging.Info("screen unlocked and pending video exists. Applying pending video.")
-				vm.applyPendingVideo()
+				m.applyPendingVideo()
 			}
 		case <-ctx.Done():
 			return nil
