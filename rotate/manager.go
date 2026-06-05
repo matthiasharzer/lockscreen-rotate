@@ -10,6 +10,7 @@ import (
 
 	"github.com/matthiasharzer/lockscreen-rotate/lockscreen"
 	"github.com/matthiasharzer/lockscreen-rotate/logging"
+	"github.com/matthiasharzer/lockscreen-rotate/rotate/updater"
 	"github.com/matthiasharzer/lockscreen-rotate/trigger"
 )
 
@@ -18,13 +19,11 @@ type Schedule struct {
 	MaxUpdateDelay time.Duration
 }
 
-type Updater func(destPath string) error
-
 type Manager struct {
 	targetSymlinkPath string
 	cacheDirectory    string
 	isDownloading     atomic.Bool
-	updateFile        Updater
+	updateFile        updater.Updater
 	lockscreenState   *lockscreen.State
 	trigger           trigger.Trigger
 
@@ -34,7 +33,7 @@ type Manager struct {
 func NewRotateManager(
 	symlinkPath,
 	cacheDirectory string,
-	downloader Updater,
+	updater updater.Updater,
 	lockscreenState *lockscreen.State,
 	trigger trigger.Trigger,
 ) (*Manager, error) {
@@ -46,7 +45,7 @@ func NewRotateManager(
 	return &Manager{
 		targetSymlinkPath: absSymlinkPath,
 		cacheDirectory:    cacheDirectory,
-		updateFile:        downloader,
+		updateFile:        updater,
 		lockscreenState:   lockscreenState,
 		trigger:           trigger,
 	}, nil
